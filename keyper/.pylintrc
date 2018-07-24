@@ -1,0 +1,25 @@
+[MASTER]
+
+# Pickle collected data for later comparisons.
+persistent=yes
+
+[REPORTS]
+
+# Set the output format. Available formats are text, parseable, colorized, json
+# and msvs (visual studio).You can also give a reporter class, eg
+# mypackage.mymodule.MyReporterClass.
+output-format=parseable
+
+[FORMAT]
+
+# Maximum number of characters on a single line.
+max-line-length=120
+
+
+[DESIGN]
+
+# Maximum number of arguments for function / method
+max-args=6
+
+# Minimum number of public methods for a class (see R0903).
+min-public-methods=0
