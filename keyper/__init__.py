@@ -136,6 +136,11 @@ class Keychain():
             log.debug("Skipping deletion due to being a non-temporary")
             return
 
+        self.delete()
+
+    def delete(self):
+        """Deletes the keychain."""
+
         log.info("Deleting keychain: %s", self.path)
 
         try:
