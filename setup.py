@@ -23,6 +23,7 @@ def run_setup():
         version=keyper.__version__,
         description='A utility for dealing with the macOS keychain.',
         long_description=long_description,
+        long_description_content_type="text/markdown",
         url='https://github.com/Microsoft/keyper',
         author='Dale Myers',
         author_email='dalemy@microsoft.com',

@@ -15,7 +15,7 @@ import subprocess
 import tempfile
 import uuid
 
-__version__ = '0.2'
+__version__ = '0.3'
 
 #pylint: disable=invalid-name
 log = logging.getLogger("mackey")
@@ -135,6 +135,11 @@ class Keychain():
         if not self.is_temporary:
             log.debug("Skipping deletion due to being a non-temporary")
             return
+
+        self.delete()
+
+    def delete(self):
+        """Deletes the keychain."""
 
         log.info("Deleting keychain: %s", self.path)
 
