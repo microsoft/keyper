@@ -1,13 +1,13 @@
 # keyper 
 
-A Python library for dealing with the macOS Keychain
+A Python 3 library for dealing with the macOS Keychain
 
 ### Installation
 
     pip install keyper
 
 ### Examples:
-
+```python
     import keyper
 
     # Get a password from the keychain
@@ -19,7 +19,7 @@ A Python library for dealing with the macOS Keychain
         certificate = keyper.Certificate("/path/to/cert", password="p4ssw0rd!")
         keychain.install_cert(certificate)
         # Use codesign or similar here
-
+```
     
 
 
