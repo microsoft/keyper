@@ -26,7 +26,7 @@ if StrictVersion(platform.mac_ver()[0]) < StrictVersion("10.13.0"):
     raise Exception("This tool is only supported on macOS 10.13.0 or higher")
 
 
-class Certificate():
+class Certificate:
     """Represents a p12 certificate."""
 
     def __init__(self, path, *, password=None):
@@ -116,7 +116,7 @@ class Certificate():
         return private_key_name
 
 
-class Keychain():
+class Keychain:
     """Represents an actual keychain in the system."""
 
     def __init__(self, path: str, password: str, *, is_temporary: bool = False):
@@ -412,7 +412,7 @@ class Keychain():
             raise
 
 
-class TemporaryKeychain():
+class TemporaryKeychain:
     """Context object for working with a temporary keychain."""
 
     def __init__(self):
