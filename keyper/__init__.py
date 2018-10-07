@@ -31,7 +31,7 @@ class Certificate:
 
     def __init__(self, path, *, password=None):
         self.path = path
-        self.password = password if password is not None else ""
+        self.password = password if password is not None else str()
 
         self.sha1 = self._get_p12_sha1_hash()
         self.common_name = self._get_common_name()
@@ -306,7 +306,7 @@ class Keychain:
         command = 'security list-keychains'
 
         if domain is not None:
-            if domain not in ["user", "system", "common", "dynamic"]:
+            if domain not in ("user", "system", "common", "dynamic"):
                 raise Exception("Invalid domain: " + domain)
 
             command = f'{command} -d {shlex.quote(domain)}'
@@ -373,7 +373,7 @@ class Keychain:
                 stderr=subprocess.PIPE
             ).stdout
         except subprocess.CalledProcessError:
-            return None
+            return
 
         # The output format looks like this:
         #     "/Users/dalemy/Library/Keychains/login.keychain-db"
@@ -388,7 +388,7 @@ class Keychain:
         return Keychain(default_keychain_path, password)
 
     @staticmethod
-    def _create_keychain(keychain_path, keychain_password, *, lock_on_sleep=True, lock_on_timeout=True, timeout=60*6):
+    def _create_keychain(keychain_path, keychain_password, *, lock_on_sleep=True, lock_on_timeout=True, timeout=60 * 6):
         try:
             subprocess.run(
                 f'security create-keychain -p {shlex.quote(keychain_password)} {shlex.quote(keychain_path)}',
@@ -499,7 +499,7 @@ def get_password(*, label: str = None, account: str = None, creator: str = None,
             stderr=subprocess.PIPE
         ).stdout
     except subprocess.CalledProcessError:
-        return None
+        return
 
     # It has a new line since we are running a command, so we need to drop it.
     assert password[-1] == "\n"
