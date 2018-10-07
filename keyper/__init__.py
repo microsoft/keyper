@@ -2,8 +2,6 @@
 
 """A utility for dealing with the macOS keychain."""
 
-#pylint: disable=line-too-long
-
 from distutils.version import StrictVersion
 import logging
 import os
@@ -17,9 +15,7 @@ import uuid
 
 __version__ = '0.3'
 
-#pylint: disable=invalid-name
 log = logging.getLogger("mackey")
-#pylint: enable=invalid-name
 
 _PASSWORD_ALPHABET = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@£$%^&*()_+-={}[]:|;<>?,./~`'
 
