@@ -62,11 +62,9 @@ class Certificate:
         log.debug(f'Full value: {value}')
         return value
 
-
     def _get_common_name(self):
 
         log.debug("Getting certificate common name")
-
         subject = self._get_value("subject")
         match = re.search(r'subject=.*/CN=(.*).*/.*', subject)
 
@@ -79,12 +77,9 @@ class Certificate:
         return common_name
 
     def _get_p12_sha1_hash(self):
-
         log.debug("Getting certificate SHA1 hash")
-
         fingerprint = self._get_value("fingerprint")
         fingerprint = fingerprint.replace("SHA1 Fingerprint=", "")
-
         return fingerprint
 
     def _get_private_key_name(self):
@@ -115,7 +110,6 @@ class Certificate:
         value = value.strip()
         log.debug(f'Friendly name: {value}')
         private_key_name = value.replace("friendlyName: ", "")
-
         return private_key_name
 
 
@@ -212,9 +206,7 @@ class Keychain:
 
         # There is no "add" operation, only a "set" one, so we need to get the
         # existing ones so that we can set those along with our new one.
-
         previous_keychains = Keychain.list_keychains(domain="user")
-
         if self.path in previous_keychains:
             return
 
