@@ -25,7 +25,7 @@ class AppleKeychainTests(unittest.TestCase):
     def test_temporary_keychain(self):
         """Test that a temporary keychain can be created, read and destroyed."""
 
-        keychain = keyper.Keychain.create_temporary()
+        keychain = keyper.create_temporary()
 
         self.assertIsNotNone(keychain.path)
         self.assertIsNotNone(keychain.password)

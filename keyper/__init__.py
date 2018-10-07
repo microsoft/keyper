@@ -1,23 +1,14 @@
-#!/usr/bin/env python3
-
-"""A utility for dealing with the macOS keychain."""
-
+import platform
 from distutils.version import StrictVersion
 import logging
 import os
-import platform
 import re
 import secrets
 import shlex
 import subprocess
 import tempfile
 import uuid
-
-__version__ = '0.3'
-
-log = logging.getLogger("mackey")
-
-_PASSWORD_ALPHABET = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@£$%^&*()_+-={}[]:|;<>?,./~`'
+from typing import List
 
 if platform.system() != "Darwin":
     raise Exception("This tool is only supported on macOS")
@@ -25,23 +16,29 @@ if platform.system() != "Darwin":
 if StrictVersion(platform.mac_ver()[0]) < StrictVersion("10.13.0"):
     raise Exception("This tool is only supported on macOS 10.13.0 or higher")
 
+_PASSWORD_ALPHABET = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@£$%^&*()_+-={}[]:|;<>?,./~`'
+
+__version__ = '0.3'
+
+log = logging.getLogger("mackey")
+
 
 class Certificate:
     """Represents a p12 certificate."""
 
-    def __init__(self, path, *, password=None):
+    def __init__(self, path: str, password: str = None):
         self.path = path
-        self.password = password if password is not None else ""
-
+        self.password = password if password is not None else str()
         self.sha1 = self._get_p12_sha1_hash()
         self.common_name = self._get_common_name()
         self.private_key_name = self._get_private_key_name()
 
-    def _get_value(self, value_name):
+    def _get_value(self, value_name: str) -> str:
         log.debug(f'Getting certificate value: {value_name}')
 
         command = ' '.join([
-            f'openssl pkcs12 -in {shlex.quote(self.path)} -nokeys -passin pass:{shlex.quote(self.password)}',
+            f'openssl pkcs12 -in {shlex.quote(self.path)}',
+            f'-nokeys -passin pass:{shlex.quote(self.password)}',
             f'| openssl x509 -noout -{value_name}'
         ])
 
@@ -54,45 +51,42 @@ class Certificate:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE
             ).stdout
+
         except subprocess.CalledProcessError as ex:
             log.error(f'Failed to get value: {ex}')
-            return
+            raise
 
         value = value.strip()
         log.debug(f'Full value: {value}')
         return value
 
-    def _get_common_name(self):
-
+    def _get_common_name(self) -> str:
         log.debug("Getting certificate common name")
         subject = self._get_value("subject")
         match = re.search(r'subject=.*/CN=(.*).*/.*', subject)
 
         if match:
-            common_name = match.group(1)
-        else:
-            log.error(f'Failed to get common name from subject: {subject}')
-            return
+            return match.group(1)
 
-        return common_name
+        err_msg = f'Failed to get common name from subject: {subject}'
+        log.error(err_msg)
+        raise ValueError(err_msg)
 
-    def _get_p12_sha1_hash(self):
+    def _get_p12_sha1_hash(self) -> str:
         log.debug("Getting certificate SHA1 hash")
-        fingerprint = self._get_value("fingerprint")
-        fingerprint = fingerprint.replace("SHA1 Fingerprint=", "")
+        fingerprint = self._get_value("fingerprint").replace("SHA1 Fingerprint=", "")
         return fingerprint
 
-    def _get_private_key_name(self):
-
+    def _get_private_key_name(self) -> str:
         log.debug("Getting certificate private key name")
 
         command = ' '.join(
-                [
-                    f'openssl pkcs12 -in {shlex.quote(self.path)}',
-                    f'-nocerts -passin pass:{shlex.quote(self.password)}',
-                    f'-passout pass:{shlex.quote(self.password)} | grep "friendlyName"'
-                ]
-            )
+            [
+                f'openssl pkcs12 -in {shlex.quote(self.path)}',
+                f'-nocerts -passin pass:{shlex.quote(self.password)}',
+                f'-passout pass:{shlex.quote(self.password)} | grep "friendlyName"'
+            ]
+        )
 
         try:
             value = subprocess.run(
@@ -103,9 +97,10 @@ class Certificate:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE
             ).stdout
+
         except subprocess.CalledProcessError as ex:
             log.error(f'Failed to get private key name: {ex}')
-            return
+            raise
 
         value = value.strip()
         log.debug(f'Friendly name: {value}')
@@ -116,13 +111,13 @@ class Certificate:
 class Keychain:
     """Represents an actual keychain in the system."""
 
-    def __init__(self, path: str, password: str, *, is_temporary: bool = False):
+    def __init__(self, path: str, password: str, is_temporary: bool = False):
         log.debug(f'Creating new keychain: {path} (is_temporary={str(is_temporary)})')
         self.path = path
         self.password = password
         self.is_temporary = is_temporary
 
-    def delete_temporary(self):
+    def delete_temporary(self) -> None:
         """Delete the keychain if it is a temporary one."""
 
         if not self.is_temporary:
@@ -131,7 +126,7 @@ class Keychain:
 
         self.delete()
 
-    def delete(self):
+    def delete(self) -> None:
         """Deletes the keychain."""
 
         log.info(f'Deleting keychain: {self.path}')
@@ -144,11 +139,12 @@ class Keychain:
             )
         except subprocess.CalledProcessError as ex:
             log.error(f'Failed to delete keychain: {ex}')
+            raise
 
         if os.path.exists(self.path):
             os.remove(self.path)
 
-    def unlock(self):
+    def unlock(self) -> None:
         """Unlock the keychain."""
 
         log.info(f'Unlocking keychain: {self.path}')
@@ -163,14 +159,14 @@ class Keychain:
             log.error(f'Failed to set unlock keychain: {ex}')
             raise
 
-    def set_key_partition_list(self, certificate: Certificate):
+    def set_key_partition_list(self, certificate: Certificate) -> None:
         """Set the key partition list for the keychain.
 
         This avoids the prompt to enter the password when using a certificate
         via codesign for the first time.
 
         The logic for this is based on the answer to this SO question:
-        https://stackoverflow.com/questions/39868578/security-codesign-in-sierra-keychain-ignores-access-control-settings-and-ui-p
+        https://stackoverflow.com/questions/39868578
 
         :param Certificate certificate: The certificate to use the private key name from.
         """
@@ -199,7 +195,7 @@ class Keychain:
             log.error(f'Failed to set key parition list: {ex}')
             raise
 
-    def add_to_user_search_list(self):
+    def add_to_user_search_list(self) -> None:
         """Add the keychain to the user domain keychain search list."""
 
         log.debug(f'Adding keychain to user search list: {self.path}')
@@ -252,7 +248,7 @@ class Keychain:
         if not new_path_exists:
             raise Exception("New keychain missing when checking keychains: " + self.path)
 
-    def install_cert(self, certificate: Certificate):
+    def install_cert(self, certificate: Certificate) -> None:
         """Install the supplied certificate to the keychain.
 
         If this is a temporary keychain, the search list will be modified so that
@@ -295,7 +291,7 @@ class Keychain:
         self.add_to_user_search_list()
 
     @staticmethod
-    def list_keychains(*, domain=None):
+    def list_keychains(domain=None) -> List[str]:
         """Get the list of the current keychains.
 
         :param str domain: The domain to list the keycahins for. If left as None, all will be searched.
@@ -306,7 +302,7 @@ class Keychain:
         command = 'security list-keychains'
 
         if domain is not None:
-            if domain not in ["user", "system", "common", "dynamic"]:
+            if domain not in ("user", "system", "common", "dynamic"):
                 raise Exception("Invalid domain: " + domain)
 
             command = f'{command} -d {shlex.quote(domain)}'
@@ -337,58 +333,8 @@ class Keychain:
         return keychains
 
     @staticmethod
-    def create_temporary():
-        """Create a new temporary keychain."""
-
-        keychain_name = str(uuid.uuid4()) + ".keychain"
-        keychain_path = os.path.join(tempfile.gettempdir(), keychain_name)
-        keychain_password = ''.join(secrets.choice(_PASSWORD_ALPHABET) for i in range(50))
-
-        if os.path.exists(keychain_path):
-            raise Exception("Cannot create temporary keychain. Path already exists: " + keychain_path)
-
-        keychain = Keychain(keychain_path, keychain_password, is_temporary=True)
-
-        # We have a reference, but now we need to create the keychain with the
-        # system.
-        Keychain._create_keychain(keychain_path, keychain_password)
-
-        log.info(f'Created temporary keychain: {keychain_path}')
-
-        return keychain
-
-    @staticmethod
-    def default(password):
-        """Get the default keychain for the current user."""
-
-        log.debug("Getting default keychain")
-
-        try:
-            default_keychain_path = subprocess.run(
-                'security default-keychain',
-                universal_newlines=True,
-                shell=True,
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            ).stdout
-        except subprocess.CalledProcessError:
-            return None
-
-        # The output format looks like this:
-        #     "/Users/dalemy/Library/Keychains/login.keychain-db"
-
-        # Remove whitespace
-        default_keychain_path = default_keychain_path.strip()
-
-        # Remove quotes
-        default_keychain_path = default_keychain_path[1:]
-        default_keychain_path = default_keychain_path[:-1]
-
-        return Keychain(default_keychain_path, password)
-
-    @staticmethod
-    def _create_keychain(keychain_path, keychain_password, *, lock_on_sleep=True, lock_on_timeout=True, timeout=60*6):
+    def _create_keychain(keychain_path: str, keychain_password: str, lock_on_sleep: bool = True,
+                         lock_on_timeout: bool = True, timeout: int = 60 * 6) -> None:
         try:
             subprocess.run(
                 f'security create-keychain -p {shlex.quote(keychain_password)} {shlex.quote(keychain_path)}',
@@ -427,12 +373,33 @@ class TemporaryKeychain:
         self.keychain = None
 
     def __enter__(self):
-        self.keychain = Keychain.create_temporary()
+        self.keychain = create_temporary()
         return self.keychain
 
     def __exit__(self, *args):
         self.keychain.delete_temporary()
         self.keychain = None
+
+
+def create_temporary() -> Keychain:
+    """Create a new temporary keychain."""
+
+    keychain_name = str(uuid.uuid4()) + ".keychain"
+    keychain_path = os.path.join(tempfile.gettempdir(), keychain_name)
+    keychain_password = ''.join(secrets.choice(_PASSWORD_ALPHABET) for _ in range(50))
+
+    if os.path.exists(keychain_path):
+        raise Exception("Cannot create temporary keychain. Path already exists: " + keychain_path)
+
+    keychain = Keychain(keychain_path, keychain_password, is_temporary=True)
+
+    # We have a reference, but now we need to create the keychain with the
+    # system.
+    Keychain._create_keychain(keychain_path, keychain_password)
+
+    log.info(f'Created temporary keychain: {keychain_path}')
+
+    return keychain
 
 
 def get_password(*, label: str = None, account: str = None, creator: str = None, type_code: str = None,
@@ -454,7 +421,7 @@ def get_password(*, label: str = None, account: str = None, creator: str = None,
     """
 
     log.debug(
-        f'Fetching item from keychain: {label}, {account}, {creator}, {type_code},' \
+        f'Fetching item from keychain: {label}, {account}, {creator}, {type_code},'
         f'{kind}, {value}, {comment}, {service}, {keychain}'
     )
 
@@ -499,7 +466,7 @@ def get_password(*, label: str = None, account: str = None, creator: str = None,
             stderr=subprocess.PIPE
         ).stdout
     except subprocess.CalledProcessError:
-        return None
+        raise
 
     # It has a new line since we are running a command, so we need to drop it.
     assert password[-1] == "\n"
