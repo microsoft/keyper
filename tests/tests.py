@@ -1,18 +1,7 @@
-#!/usr/bin/env python3
-
-"""Tests for the package."""
-
-#pylint: disable=line-too-long
-
 import os
 import subprocess
-import sys
 import tempfile
 import unittest
-
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.abspath(__file__), "..", "..")))
-
 import keyper
 
 
@@ -25,7 +14,7 @@ class AppleKeychainTests(unittest.TestCase):
     def test_temporary_keychain(self):
         """Test that a temporary keychain can be created, read and destroyed."""
 
-        keychain = keyper.Keychain.create_temporary()
+        keychain = keyper.create_temporary()
 
         self.assertIsNotNone(keychain.path)
         self.assertIsNotNone(keychain.password)
@@ -87,4 +76,4 @@ class AppleKeychainTests(unittest.TestCase):
 
 
 if __name__ == "__main__":
-    unittest.main(verbosity=2)
+    unittest.main()
