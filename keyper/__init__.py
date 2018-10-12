@@ -2,8 +2,6 @@
 
 """A utility for dealing with the macOS keychain."""
 
-#pylint: disable=line-too-long
-
 from distutils.version import StrictVersion
 import logging
 import os
@@ -17,9 +15,7 @@ import uuid
 
 __version__ = '0.3'
 
-#pylint: disable=invalid-name
-log = logging.getLogger("mackey")
-#pylint: enable=invalid-name
+log = logging.getLogger("mackey")  #pylint: disable=invalid-name
 
 _PASSWORD_ALPHABET = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@£$%^&*()_+-={}[]:|;<>?,./~`'
 
@@ -96,7 +92,13 @@ class Certificate():
 
         log.debug("Getting certificate private key name")
 
-        command = f'openssl pkcs12 -in {shlex.quote(self.path)} -nocerts -passin pass:{shlex.quote(self.password)} -passout pass:{shlex.quote(self.password)} | grep "friendlyName"'
+        command = (
+            f'openssl pkcs12 -in {shlex.quote(self.path)} '
+            '-nocerts '
+            f'-passin pass:{shlex.quote(self.password)} '
+            f'-passout pass:{shlex.quote(self.password)} '
+            '| grep "friendlyName"'
+        )
 
         try:
             value = subprocess.run(
@@ -177,7 +179,7 @@ class Keychain():
         via codesign for the first time.
 
         The logic for this is based on the answer to this SO question:
-        https://stackoverflow.com/questions/39868578/security-codesign-in-sierra-keychain-ignores-access-control-settings-and-ui-p
+        https://stackoverflow.com/questions/39868578/
 
         :param Certificate certificate: The certificate to use the private key name from.
         """
@@ -190,7 +192,12 @@ class Keychain():
 
         try:
             subprocess.run(
-                f'security set-key-partition-list -S apple-tool:,apple: -s -l {shlex.quote(certificate.private_key_name)} -k {shlex.quote(self.password)} {shlex.quote(self.path)}',
+                (
+                    'security set-key-partition-list '
+                    '-S apple-tool:,apple: -s '
+                    f'-l {shlex.quote(certificate.private_key_name)} '
+                    f'-k {shlex.quote(self.password)} {shlex.quote(self.path)}'
+                ),
                 shell=True,
                 check=True
             )
@@ -271,7 +278,11 @@ class Keychain():
         self.unlock()
 
         # Import the certificate into the keychain
-        import_command = f'security import {shlex.quote(certificate.path)} -P {shlex.quote(certificate.password)} -A -t cert -f pkcs12 -k {shlex.quote(self.path)}'
+        import_command = (
+            f'security import {shlex.quote(certificate.path)} '
+            f'-P {shlex.quote(certificate.password)} '
+            f'-A -t cert -f pkcs12 -k {shlex.quote(self.path)}'
+        )
 
         try:
             subprocess.run(
@@ -431,7 +442,11 @@ class TemporaryKeychain():
         self.keychain = None
 
 
-def get_password(*, label: str = None, account: str = None, creator: str = None, type_code: str = None, kind: str = None, value: str = None, comment: str = None, service: str = None, keychain: Keychain = None) -> str:
+def get_password(
+        *, label: str = None, account: str = None, creator: str = None,
+        type_code: str = None, kind: str = None, value: str = None,
+        comment: str = None, service: str = None, keychain: Keychain = None
+) -> str:
     """Read a password from the system keychain for a given item.
 
     Any of the supplied arguments can be used to search for the password.
