@@ -1,5 +1,8 @@
 # keyper 
 
+[![PyPi Version](https://img.shields.io/pypi/v/keyper.svg)](https://pypi.org/project/keyper/)
+[![License](https://img.shields.io/pypi/l/keyper.svg)](https://github.com/Microsoft/keyper/blob/master/LICENSE)
+
 A Python 3 library for dealing with the macOS Keychain
 
 ### Installation
