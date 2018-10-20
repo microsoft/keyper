@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from os import path
+import codecs
 
 from setuptools import setup, find_packages
 
@@ -12,7 +13,7 @@ def run_setup():
 
     # Get the long description from the README file
     try:
-        with open(path.join(here, 'README.md')) as f:
+        with codecs.open(path.join(here, 'README.md'), encoding='utf-8') as f:
             long_description = f.read()
     except:
         # This happens when running tests
