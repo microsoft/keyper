@@ -2,7 +2,7 @@
 
 """Tests for the package."""
 
-#pylint: disable=line-too-long
+# pylint: disable=line-too-long
 
 import os
 import subprocess
@@ -61,7 +61,6 @@ class AppleKeychainTests(unittest.TestCase):
         with keyper.TemporaryKeychain() as keychain:
             certificate = keyper.Certificate(AppleKeychainTests.TEST_CERT_PATH, password=AppleKeychainTests.TEST_CERT_PASSWORD)
             keychain.install_cert(certificate)
-
 
     def test_using_codesign(self):
         """Test that an added cert works with codesign."""

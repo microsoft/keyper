@@ -15,7 +15,7 @@ import uuid
 
 __version__ = '0.3'
 
-log = logging.getLogger("mackey")  #pylint: disable=invalid-name
+log = logging.getLogger("mackey")  # pylint: disable=invalid-name
 
 _PASSWORD_ALPHABET = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@£$%^&*()_+-={}[]:|;<>?,./~`'
 
@@ -62,7 +62,6 @@ class Certificate:
         log.debug("Full value: %s", value)
 
         return value
-
 
     def _get_common_name(self):
 
