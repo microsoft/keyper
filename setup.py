@@ -30,6 +30,7 @@ def run_setup():
         author_email='dalemy@microsoft.com',
         license='MIT',
         install_requires=[],
+        python_requires='>=3.7',
         classifiers=[
             'Development Status :: 3 - Alpha',
             'Environment :: Console',
