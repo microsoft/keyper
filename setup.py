@@ -7,6 +7,7 @@ from setuptools import setup, find_packages
 
 import keyper
 
+
 def run_setup():
     """Run package setup."""
     here = path.abspath(path.dirname(__file__))
@@ -45,6 +46,7 @@ def run_setup():
         keywords='apple, macOS, keychain, certificates, passwords',
         packages=find_packages(exclude=['docs', 'tests'])
     )
+
 
 if __name__ == "__main__":
     run_setup()
