@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: future_fstrings -*-
 
 """A utility for dealing with the macOS keychain."""
 
@@ -7,11 +8,16 @@ import logging
 import os
 import platform
 import re
-import secrets
 import shlex
 import subprocess
 import tempfile
 import uuid
+try:
+	from secrets import choice
+except ImportError:
+	from random import SystemRandom
+	_sysrand = SystemRandom()
+	choice = _sysrand.choice
 
 __version__ = '0.3'
 
@@ -348,7 +354,7 @@ class Keychain:
 
         keychain_name = str(uuid.uuid4()) + ".keychain"
         keychain_path = os.path.join(tempfile.gettempdir(), keychain_name)
-        keychain_password = ''.join(secrets.choice(_PASSWORD_ALPHABET) for i in range(50))
+        keychain_password = ''.join(choice(_PASSWORD_ALPHABET) for i in range(50))
 
         if os.path.exists(keychain_path):
             raise Exception("Cannot create temporary keychain. Path already exists: " + keychain_path)
