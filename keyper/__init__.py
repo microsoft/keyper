@@ -2,7 +2,6 @@
 
 """A utility for dealing with the macOS keychain."""
 
-from distutils.version import StrictVersion
 import logging
 import os
 import platform
@@ -12,12 +11,14 @@ import shlex
 import subprocess
 import tempfile
 import uuid
+from distutils.version import StrictVersion
+from string import ascii_letters, digits
 
 __version__ = '0.3'
 
 log = logging.getLogger("mackey")  # pylint: disable=invalid-name
 
-_PASSWORD_ALPHABET = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@£$%^&*()_+-={}[]:|;<>?,./~`'
+_PASSWORD_ALPHABET = ascii_letters + digits + '!@£$%^&*()_+-={}[]:|;<>?,./~`'
 
 if platform.system() != "Darwin":
     raise Exception("This tool is only supported on macOS")
@@ -201,7 +202,7 @@ class Keychain:
                 check=True
             )
         except subprocess.CalledProcessError as ex:
-            log.error("Failed to set key parition list: %s", ex)
+            log.error("Failed to set key partition list: %s", ex)
             raise
 
     def add_to_user_search_list(self):
@@ -304,7 +305,7 @@ class Keychain:
     def list_keychains(*, domain=None):
         """Get the list of the current keychains.
 
-        :param str domain: The domain to list the keycahins for. If left as None, all will be searched.
+        :param str domain: The domain to list the keychains for. If left as None, all will be searched.
         """
 
         log.debug("Listing the current keychains")
@@ -330,17 +331,16 @@ class Keychain:
             log.error("Failed to get keychains: %s", ex)
             raise
 
-        keychains = keychains.split("\n")
-
         # Cleanup the output format into a regular Python list of strings
-        keychains = [keychain.strip() for keychain in keychains]
-        keychains = [keychain for keychain in keychains if len(keychain) > 0]
-        keychains = [keychain[1:] for keychain in keychains]
-        keychains = [keychain[:-1] for keychain in keychains]
+        result = []
+        for keychain in keychains.split("\n"):
+            current = keychain.strip()[1:-1]
+            if current:
+                result.append(current)
 
-        log.debug("Current keychains: %s", str(keychains))
+        log.debug("Current keychains: %s", str(result))
 
-        return keychains
+        return result
 
     @staticmethod
     def create_temporary():
@@ -348,7 +348,7 @@ class Keychain:
 
         keychain_name = str(uuid.uuid4()) + ".keychain"
         keychain_path = os.path.join(tempfile.gettempdir(), keychain_name)
-        keychain_password = ''.join(secrets.choice(_PASSWORD_ALPHABET) for i in range(50))
+        keychain_password = ''.join(secrets.choice(_PASSWORD_ALPHABET) for _ in range(50))
 
         if os.path.exists(keychain_path):
             raise Exception("Cannot create temporary keychain. Path already exists: " + keychain_path)
