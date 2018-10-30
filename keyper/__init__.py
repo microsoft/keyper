@@ -319,7 +319,7 @@ class Keychain:
             command += f' -d {shlex.quote(domain)}'
 
         try:
-            keychains = subprocess.run(
+            keychain_command_output = subprocess.run(
                 command,
                 universal_newlines=True,
                 shell=True,
@@ -332,15 +332,16 @@ class Keychain:
             raise
 
         # Cleanup the output format into a regular Python list of strings
-        result = []
-        for keychain in keychains.split("\n"):
+        keychains = []
+        for keychain in keychain_command_output.split("\n"):
+            # Remove surrounding whitespace and then surrounding quotes
             current = keychain.strip()[1:-1]
             if current:
-                result.append(current)
+                keychains.append(current)
 
-        log.debug("Current keychains: %s", str(result))
+        log.debug("Current keychains: %s", str(keychains))
 
-        return result
+        return keychains
 
     @staticmethod
     def create_temporary():
