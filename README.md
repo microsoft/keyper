@@ -5,11 +5,11 @@
 
 A Python 3 library for dealing with the macOS Keychain
 
-### Installation
+## Installation
 
     pip install keyper
 
-### Examples:
+## Examples:
 ```python
 import keyper
 
