@@ -6,12 +6,12 @@
 jobs:
 
 - job: 'YML Test'
- pool:
-   name: "Outlook Mobile iOS"
- steps:
- - script: |
-     echo "Hello World"
-   displayName: 'Hello'
+  pool:
+    name: "Outlook Mobile iOS"
+  steps:
+  - script: |
+      echo "Hello World"
+    displayName: 'Hello'
 
 - job: 'Test'
   pool:
