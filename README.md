@@ -19,7 +19,7 @@ password = keyper.get_password(label="my_keychain_password")
 # Create a temporary keychain and install the certificate:
 
 with keyper.TemporaryKeychain() as keychain:
-    certificate = keyper.Certificate("/path/to/cert", password="p4ssw0rd!")
+    certificate = keyper.Certificate("/path/to/cert", password="password")
     keychain.install_cert(certificate)
     # Use codesign or similar here
 ```
