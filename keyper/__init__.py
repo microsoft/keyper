@@ -2,21 +2,21 @@
 
 """A utility for dealing with the macOS keychain."""
 
+from distutils.version import StrictVersion
 import logging
 import os
 import platform
 import re
 import secrets
 import shlex
+from string import ascii_letters, digits
 import subprocess
 import tempfile
+from types import TracebackType
+from typing import List, Optional, Type
 import uuid
-from distutils.version import StrictVersion
-from string import ascii_letters, digits
 
-__version__ = '0.3'
-
-log = logging.getLogger("mackey")  # pylint: disable=invalid-name
+log = logging.getLogger("keyper")  # pylint: disable=invalid-name
 
 _PASSWORD_ALPHABET = ascii_letters + digits + '!@£$%^&*()_+-={}[]:|;<>?,./~`'
 
@@ -30,7 +30,13 @@ if StrictVersion(platform.mac_ver()[0]) < StrictVersion("10.13.0"):
 class Certificate:
     """Represents a p12 certificate."""
 
-    def __init__(self, path, *, password=None):
+    path: str
+    password: str
+    sha1: str
+    common_name: Optional[str]
+    private_key_name: Optional[str]
+
+    def __init__(self, path: str, *, password: Optional[str] = None) -> None:
         self.path = path
         self.password = password if password is not None else ""
 
@@ -38,7 +44,7 @@ class Certificate:
         self.common_name = self._get_common_name()
         self.private_key_name = self._get_private_key_name()
 
-    def _get_value(self, value_name):
+    def _get_value(self, value_name: str) -> Optional[str]:
 
         log.debug("Getting certificate value: %s", value_name)
 
@@ -64,11 +70,16 @@ class Certificate:
 
         return value
 
-    def _get_common_name(self):
+    def _get_common_name(self) -> Optional[str]:
 
         log.debug("Getting certificate common name")
 
         subject = self._get_value("subject")
+
+        if subject is None:
+            log.error("Failed to get common name due to lack of subject")
+            return None
+
         match = re.search(r'subject=.*/CN=(.*).*/.*', subject)
 
         if match:
@@ -79,16 +90,20 @@ class Certificate:
 
         return common_name
 
-    def _get_p12_sha1_hash(self):
+    def _get_p12_sha1_hash(self) -> str:
 
         log.debug("Getting certificate SHA1 hash")
 
         fingerprint = self._get_value("fingerprint")
+
+        if fingerprint is None:
+            raise Exception("Failed to get fingerprint")
+
         fingerprint = fingerprint.replace("SHA1 Fingerprint=", "")
 
         return fingerprint
 
-    def _get_private_key_name(self):
+    def _get_private_key_name(self) -> Optional[str]:
 
         log.debug("Getting certificate private key name")
 
@@ -125,13 +140,17 @@ class Certificate:
 class Keychain:
     """Represents an actual keychain in the system."""
 
-    def __init__(self, path: str, password: str, *, is_temporary: bool = False):
+    path: str
+    password: str
+    is_temporary: bool
+
+    def __init__(self, path: str, password: str, *, is_temporary: bool = False) -> None:
         log.debug("Creating new keychain: %s (is_temporary=%s)", path, str(is_temporary))
         self.path = path
         self.password = password
         self.is_temporary = is_temporary
 
-    def delete_temporary(self):
+    def delete_temporary(self) -> None:
         """Delete the keychain if it is a temporary one."""
 
         if not self.is_temporary:
@@ -140,7 +159,7 @@ class Keychain:
 
         self.delete()
 
-    def delete(self):
+    def delete(self) -> None:
         """Deletes the keychain."""
 
         log.info("Deleting keychain: %s", self.path)
@@ -157,7 +176,7 @@ class Keychain:
         if os.path.exists(self.path):
             os.remove(self.path)
 
-    def unlock(self):
+    def unlock(self) -> None:
         """Unlock the keychain."""
 
         log.info("Unlocking keychain: %s", self.path)
@@ -172,7 +191,7 @@ class Keychain:
             log.error("Failed to set unlock keychain: %s", ex)
             raise
 
-    def set_key_partition_list(self, certificate: Certificate):
+    def set_key_partition_list(self, certificate: Certificate) -> None:
         """Set the key partition list for the keychain.
 
         This avoids the prompt to enter the password when using a certificate
@@ -185,6 +204,10 @@ class Keychain:
         """
 
         log.debug("Setting partition list for: %s", certificate.private_key_name)
+
+        if certificate.private_key_name is None:
+            log.warning("Skipping due to certificate not having a private key")
+            return
 
         if self.is_temporary:
             log.debug("Skipping due to being temporary")
@@ -205,7 +228,7 @@ class Keychain:
             log.error("Failed to set key partition list: %s", ex)
             raise
 
-    def add_to_user_search_list(self):
+    def add_to_user_search_list(self) -> None:
         """Add the keychain to the user domain keychain search list."""
 
         log.debug("Adding keychain to user search list: %s", self.path)
@@ -262,7 +285,7 @@ class Keychain:
         if not new_path_exists:
             raise Exception("New keychain missing when checking keychains: " + self.path)
 
-    def install_cert(self, certificate: Certificate):
+    def install_cert(self, certificate: Certificate) -> None:
         """Install the supplied certificate to the keychain.
 
         If this is a temporary keychain, the search list will be modified so that
@@ -302,10 +325,10 @@ class Keychain:
         self.add_to_user_search_list()
 
     @staticmethod
-    def list_keychains(*, domain=None):
+    def list_keychains(*, domain: Optional[str] = None) -> List[str]:
         """Get the list of the current keychains.
 
-        :param str domain: The domain to list the keychains for. If left as None, all will be searched.
+        :param domain: The domain to list the keychains for. If left as None, all will be searched.
         """
 
         log.debug("Listing the current keychains")
@@ -344,7 +367,7 @@ class Keychain:
         return keychains
 
     @staticmethod
-    def create_temporary():
+    def create_temporary() -> 'Keychain':
         """Create a new temporary keychain."""
 
         keychain_name = str(uuid.uuid4()) + ".keychain"
@@ -365,7 +388,7 @@ class Keychain:
         return keychain
 
     @staticmethod
-    def default(password):
+    def default(password: str) -> 'Keychain':
         """Get the default keychain for the current user."""
 
         log.debug("Getting default keychain")
@@ -379,8 +402,9 @@ class Keychain:
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE
             ).stdout
-        except subprocess.CalledProcessError:
-            return None
+        except subprocess.CalledProcessError as ex:
+            log.error(f"Failed to get default keychain: {ex}")
+            raise
 
         # The output format looks like this:
         #     "/Users/dalemy/Library/Keychains/login.keychain-db"
@@ -395,7 +419,16 @@ class Keychain:
         return Keychain(default_keychain_path, password)
 
     @staticmethod
-    def _create_keychain(keychain_path, keychain_password, *, lock_on_sleep=True, lock_on_timeout=True, timeout=60*6):
+    def _create_keychain(
+            keychain_path: str,
+            keychain_password: str,
+            *,
+            lock_on_sleep: bool = True,
+            lock_on_timeout: bool = True,
+            timeout: int = 60*6
+        ):
+        """Create a new keychain."""
+
         try:
             subprocess.run(
                 f'security create-keychain -p {shlex.quote(keychain_password)} {shlex.quote(keychain_path)}',
@@ -430,23 +463,43 @@ class Keychain:
 class TemporaryKeychain:
     """Context object for working with a temporary keychain."""
 
-    def __init__(self):
+    keychain: Optional[Keychain]
+
+    def __init__(self) -> None:
         self.keychain = None
 
-    def __enter__(self):
+    def __enter__(self) -> "Keychain":
+        """Enter the context
+
+        :returns: A reference to self
+        """
         self.keychain = Keychain.create_temporary()
         return self.keychain
 
-    def __exit__(self, *args):
-        self.keychain.delete_temporary()
-        self.keychain = None
+    def __exit__(
+        self,
+        exc_type: Optional[Type[BaseException]],
+        exc_val: Optional[Exception],
+        exc_tb: Optional[TracebackType],
+    ) -> bool:
+        if self.keychain:
+            self.keychain.delete_temporary()
+            self.keychain = None
+        return False
 
 
 def get_password(
-        *, label: str = None, account: str = None, creator: str = None,
-        type_code: str = None, kind: str = None, value: str = None,
-        comment: str = None, service: str = None, keychain: Keychain = None
-) -> str:
+        *,
+        label: Optional[str] = None,
+        account: Optional[str] = None,
+        creator: Optional[str] = None,
+        type_code: Optional[str] = None,
+        kind: Optional[str] = None,
+        value: Optional[str] = None,
+        comment: Optional[str] = None,
+        service: Optional[str] = None,
+        keychain: Optional[Keychain] = None
+    ) -> Optional[str]:
     """Read a password from the system keychain for a given item.
 
     Any of the supplied arguments can be used to search for the password.
