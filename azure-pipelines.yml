@@ -1,7 +1,3 @@
-# Python package
-# Create and test a Python package on multiple Python versions.
-# Add steps that analyze code, save the dist with the build record, publish to a PyPI-compatible index, and more:
-# https://docs.microsoft.com/azure/devops/pipelines/languages/python
 
 jobs:
 
@@ -25,13 +21,38 @@ jobs:
       versionSpec: '$(python.version)'
       architecture: 'x64'
 
-  - script: python -m pip install --upgrade pip && pip install -r requirements.txt
+  - script: curl -sSL https://raw.githubusercontent.com/sdispater/poetry/master/get-poetry.py | python
+    displayName: Install Poetry
+
+  - script: python -m venv $(System.DefaultWorkingDirectory)
+    displayName: Create virtual environment
+
+  - script: |
+      source bin/activate
+      $HOME/.poetry/bin/poetry install
     displayName: 'Install dependencies'
 
   - script: |
-      pip install pytest
-      pytest tests --doctest-modules --junitxml=junit/test-results.xml
+      source bin/activate
+      python -m pylint --rcfile=pylintrc protool
+      python -m pylint --rcfile=pylintrc tests
+    displayName: 'Lint'
+
+  - script: |
+      source bin/activate
+      python -m mypy --ignore-missing-imports protool/
+      python -m mypy --ignore-missing-imports tests/
+    displayName: 'Type Check'
+
+  - script: |
+      source bin/activate
+      python -m pytest tests --cov=protool --cov-report html --cov-report xml --doctest-modules --junitxml=junit/test-results.xml
     displayName: 'pytest'
+
+  - script: |
+      source bin/activate
+      python inlinecss.py htmlcov
+    displayName: 'Inline CSS'
 
   - task: PublishTestResults@2
     inputs:
@@ -39,3 +60,9 @@ jobs:
       testRunTitle: 'Python $(python.version)'
     condition: succeededOrFailed()
 
+  # Publish Code Coverage Results
+  - task: PublishCodeCoverageResults@1
+    inputs:
+      codeCoverageTool: 'cobertura'
+      summaryFileLocation: $(System.DefaultWorkingDirectory)/coverage.xml
+      reportDirectory: $(System.DefaultWorkingDirectory)/htmlcov
