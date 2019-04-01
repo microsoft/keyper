@@ -60,6 +60,8 @@ class AppleKeychainTests(unittest.TestCase):
 
         with keyper.TemporaryKeychain() as keychain:
             certificate = keyper.Certificate(AppleKeychainTests.TEST_CERT_PATH, password=AppleKeychainTests.TEST_CERT_PASSWORD)
+            self.assertEqual(certificate.path, AppleKeychainTests.TEST_CERT_PATH)
+            self.assertEqual(certificate.password, AppleKeychainTests.TEST_CERT_PASSWORD)
             keychain.install_cert(certificate)
 
     def test_using_codesign(self):
@@ -80,6 +82,8 @@ class AppleKeychainTests(unittest.TestCase):
                     shell=True,
                     check=True
                 )
+            except subprocess.CalledProcessError as ex:
+                self.fail(f"Failed to use codesign: {ex}")
             finally:
                 if os.path.exists(temp_file_path):
                     os.remove(temp_file_path)
