@@ -14,7 +14,7 @@ import uuid
 from distutils.version import StrictVersion
 from string import ascii_letters, digits
 
-log = logging.getLogger("mackey")  # pylint: disable=invalid-name
+log = logging.getLogger("keyper")  # pylint: disable=invalid-name
 
 _PASSWORD_ALPHABET = ascii_letters + digits + '!@£$%^&*()_+-={}[]:|;<>?,./~`'
 
