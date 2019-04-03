@@ -16,41 +16,16 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.abspath(__file__), "..",
 import keyper
 
 
-class AppleKeychainTests(unittest.TestCase):
-    """Test the library."""
+class KeyperCertificateTests(unittest.TestCase):
+    """Test certificates."""
 
     TEST_CERT_PATH = os.path.join(os.path.dirname(__file__), "TestCert_CodeSign.p12")
     TEST_CERT_PASSWORD = "testcertificatepassword"
 
-    def test_temporary_keychain(self):
-        """Test that a temporary keychain can be created, read and destroyed."""
-
-        keychain = keyper.Keychain.create_temporary()
-
-        self.assertIsNotNone(keychain.path)
-        self.assertIsNotNone(keychain.password)
-        self.assertTrue(os.path.exists(keychain.path))
-        self.assertTrue(keychain.is_temporary)
-
-        keychain.delete_temporary()
-
-        self.assertFalse(os.path.exists(keychain.path))
-
-    def test_temporary_keychain_context(self):
-        """Test that a temporary keychain can be created, read and destroyed via the context manager."""
-
-        with keyper.TemporaryKeychain() as keychain:
-            self.assertIsNotNone(keychain.path)
-            self.assertIsNotNone(keychain.password)
-            self.assertTrue(os.path.exists(keychain.path))
-            self.assertTrue(keychain.is_temporary)
-
-        self.assertFalse(os.path.exists(keychain.path))
-
     def test_creating_cert(self):
         """Test creating a certificate."""
 
-        certificate = keyper.Certificate(AppleKeychainTests.TEST_CERT_PATH, password=AppleKeychainTests.TEST_CERT_PASSWORD)
+        certificate = keyper.Certificate(KeyperCertificateTests.TEST_CERT_PATH, password=KeyperCertificateTests.TEST_CERT_PASSWORD)
         self.assertEqual(certificate.sha1, "75:22:4C:AD:D6:A0:BD:0C:88:5F:B1:77:85:2F:83:A4:F6:80:69:70")
         self.assertEqual(certificate.common_name, "TestCertificate_CodeSign")
         self.assertEqual(certificate.private_key_name, "TestCertificate_CodeSign")
@@ -59,16 +34,16 @@ class AppleKeychainTests(unittest.TestCase):
         """Test that we can add a cert to the keychain."""
 
         with keyper.TemporaryKeychain() as keychain:
-            certificate = keyper.Certificate(AppleKeychainTests.TEST_CERT_PATH, password=AppleKeychainTests.TEST_CERT_PASSWORD)
-            self.assertEqual(certificate.path, AppleKeychainTests.TEST_CERT_PATH)
-            self.assertEqual(certificate.password, AppleKeychainTests.TEST_CERT_PASSWORD)
+            certificate = keyper.Certificate(KeyperCertificateTests.TEST_CERT_PATH, password=KeyperCertificateTests.TEST_CERT_PASSWORD)
+            self.assertEqual(certificate.path, KeyperCertificateTests.TEST_CERT_PATH)
+            self.assertEqual(certificate.password, KeyperCertificateTests.TEST_CERT_PASSWORD)
             keychain.install_cert(certificate)
 
     def test_using_codesign(self):
         """Test that an added cert works with codesign."""
 
         with keyper.TemporaryKeychain() as keychain:
-            certificate = keyper.Certificate(AppleKeychainTests.TEST_CERT_PATH, password=AppleKeychainTests.TEST_CERT_PASSWORD)
+            certificate = keyper.Certificate(KeyperCertificateTests.TEST_CERT_PATH, password=KeyperCertificateTests.TEST_CERT_PASSWORD)
             keychain.install_cert(certificate)
 
             temp_file_path = tempfile.mktemp()
