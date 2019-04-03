@@ -515,6 +515,8 @@ def get_password(
     :param Keychain keychain: If supplied, only search this keychain, otherwise search all.
     """
 
+    #pylint: disable=too-many-locals
+
     log.debug(
         "Fetching item from keychain: %s, %s, %s, %s, %s, %s, %s, %s, %s",
         label, account, creator, type_code, kind, value, comment, service, keychain
@@ -537,25 +539,42 @@ def get_password(
         if item is not None:
             command += f' {flag} {shlex.quote(item)}'
 
-    command += ' -w'
+    command += ' -g'
 
     if keychain is not None:
         command += ' ' + keychain.path
 
     try:
-        password = subprocess.run(
+        output = subprocess.run(
             command,
             universal_newlines=True,
             shell=True,
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE
-        ).stdout
+        ).stderr
     except subprocess.CalledProcessError:
         return None
 
-    # It has a new line since we are running a command, so we need to drop it.
-    assert password[-1] == "\n"
-    password = password[:-1]
+    # The output is somewhat complex. We are looking for the line starting "password:"
+    password_lines = [line for line in output.split("\n")]
+    password_lines = [line for line in password_lines if line.startswith("password: ")]
+
+    if len(password_lines) != 1:
+        raise Exception("Failed to get password from security output")
+
+    password_line = password_lines[0]
+
+    complex_pattern_match = re.match(r'^password: 0x([0-9A-F]*) *"(.*)"$', password_line)
+    simple_pattern_match = re.match(r'^password: "(.*)"$', password_line)
+
+    password = None
+
+    if complex_pattern_match:
+        hex_value = complex_pattern_match.group(1)
+        password = bytes.fromhex(hex_value).decode('utf-8')
+
+    elif simple_pattern_match:
+        password = simple_pattern_match.group(1)
 
     return password
