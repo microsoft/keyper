@@ -8,10 +8,8 @@ import os
 import sys
 import unittest
 
-#pylint: disable=duplicate-code
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.abspath(__file__), "..", "..")))
 import keyper
-#pylint: enable=duplicate-code
 
 
 class KeyperKeychainTests(unittest.TestCase):
