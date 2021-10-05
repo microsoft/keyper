@@ -13,7 +13,7 @@ from string import ascii_letters, digits
 import subprocess
 import tempfile
 from types import TracebackType
-from typing import List, Optional, Type
+from typing import List, Literal, Optional, Type
 import uuid
 
 log = logging.getLogger("keyper")  # pylint: disable=invalid-name
@@ -166,7 +166,9 @@ class Keychain:
 
         try:
             subprocess.run(
-                f"security delete-keychain {shlex.quote(self.path)}", shell=True, check=True
+                f"security delete-keychain {shlex.quote(self.path)}",
+                shell=True,
+                check=True,
             )
         except subprocess.CalledProcessError as ex:
             log.error("Failed to delete keychain: %s", ex)
@@ -473,7 +475,7 @@ class TemporaryKeychain:
         exc_type: Optional[Type[BaseException]],
         exc_val: Optional[Exception],
         exc_tb: Optional[TracebackType],
-    ) -> bool:
+    ) -> Literal[False]:
         if self.keychain:
             self.keychain.delete_temporary()
             self.keychain = None
@@ -557,8 +559,7 @@ def get_password(
         return None
 
     # The output is somewhat complex. We are looking for the line starting "password:"
-    password_lines = [line for line in output.split("\n")]
-    password_lines = [line for line in password_lines if line.startswith("password: ")]
+    password_lines = [line for line in output.split("\n") if line.startswith("password: ")]
 
     if len(password_lines) != 1:
         raise Exception("Failed to get password from security output")

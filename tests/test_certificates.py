@@ -59,7 +59,7 @@ class KeyperCertificateTests(unittest.TestCase):
 
             temp_file_path = tempfile.mktemp()
 
-            with open(temp_file_path, "w") as temp_file:
+            with open(temp_file_path, "w", encoding="utf-8") as temp_file:
                 temp_file.write("Test")
 
             try:
