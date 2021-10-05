@@ -1,0 +1,8 @@
+{
+    "python.formatting.provider": "black",
+    "python.formatting.blackArgs": [
+        "--line-length",
+        "100"
+    ],
+    "python.pythonPath": "venv/bin/python"
+}
