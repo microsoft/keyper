@@ -19,13 +19,13 @@ class KeyperPasswordTests(unittest.TestCase):
         "",
         "password",
         "p@ssw0rd",
-        "Hello \"World\"",
+        'Hello "World"',
         "Hello 'World'",
         "Line\nBreak",
         "!@£$%^&*()_+-=[]{};'\\:\"|<>?,./`~§±",
         "This is a rather long passphrase but it should still be totally fine",
         "パスワード",
-        "👍"
+        "👍",
     ]
 
     def test_password_write_read(self):
@@ -33,8 +33,15 @@ class KeyperPasswordTests(unittest.TestCase):
 
         with keyper.TemporaryKeychain() as keychain:
             for index, password in enumerate(KeyperPasswordTests.SAMPLE_PASSWORDS):
-                keyper.set_password(password, account=f"account_{index}", service=f"service_{index}", keychain=keychain)
-                returned_password = keyper.get_password(account=f"account_{index}", service=f"service_{index}", keychain=keychain)
+                keyper.set_password(
+                    password,
+                    account=f"account_{index}",
+                    service=f"service_{index}",
+                    keychain=keychain,
+                )
+                returned_password = keyper.get_password(
+                    account=f"account_{index}", service=f"service_{index}", keychain=keychain
+                )
                 self.assertEqual(password, returned_password)
 
 
