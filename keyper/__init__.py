@@ -680,3 +680,76 @@ def set_password(
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
     ).stdout
+
+
+def delete_password(
+    *,
+    account: str,
+    service: str,
+    label: Optional[str] = None,
+    creator: Optional[str] = None,
+    type_code: Optional[str] = None,
+    kind: Optional[str] = None,
+    attribute: Optional[str] = None,
+    comment: Optional[str] = None,
+    keychain: Optional[Keychain] = None,
+) -> None:
+    """Delete a password from the system keychain for a given item.
+
+    Any of the supplied arguments can be used to search for the password.
+
+    :param str account: The name of the account
+    :param str service: The service name
+    :param Optional[str] label: The label (uses service name if not specified)
+    :param Optional[str] creator: The creator (a 4 character code)
+    :param Optional[str] type_code: The item type (a 4 character code)
+    :param Optional[str] kind: The item kind. Defaults to "application password"
+    :param Optional[str] attribute: Any generic attribute
+    :param Optional[str] comment: The comment
+    :param Keychain keychain: If supplied, delete from that keychain, otherwise use the default.
+    """
+
+    # pylint: disable=too-many-locals
+
+    log.debug(
+        "Deleting item from keychain: %s, %s, %s, %s, %s, %s, %s, %s, %s",
+        account,
+        service,
+        label,
+        creator,
+        type_code,
+        kind,
+        attribute,
+        comment,
+        keychain,
+    )
+
+    command = "security delete-generic-password"
+
+    flags = {
+        "-a": account,
+        "-c": creator,
+        "-C": type_code,
+        "-D": kind,
+        "-G": attribute,
+        "-j": comment,
+        "-l": label,
+        "-s": service,
+    }
+
+    for flag, item in flags.items():
+        if item is not None:
+            command += f" {flag} {shlex.quote(item)}"
+
+    if keychain is not None:
+        command += " " + keychain.path
+
+    # Let the exception bubble up
+    _ = subprocess.run(
+        command,
+        universal_newlines=True,
+        shell=True,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    ).stdout

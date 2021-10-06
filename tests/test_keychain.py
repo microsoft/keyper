@@ -28,6 +28,18 @@ class KeyperKeychainTests(unittest.TestCase):
         self.assertTrue(os.path.exists(keychain.path))
         self.assertTrue(keychain.is_temporary)
 
+        keychain.unlock()
+
+        keyper.set_password("foo", account="bar", service="baz", keychain=keychain)
+
+        result = keyper.get_password(label="baz", account="bar", service="baz")
+        assert result == "foo"
+
+        keyper.delete_password(label="baz", account="bar", service="baz")
+
+        result = keyper.get_password(label="baz", account="bar", service="baz")
+        assert result is None
+
         keychain.delete_temporary()
 
         self.assertFalse(os.path.exists(keychain.path))
