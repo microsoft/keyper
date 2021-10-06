@@ -164,6 +164,276 @@ class Certificate:
         return value
 
 
+def get_password(
+    *,
+    label: Optional[str] = None,
+    account: Optional[str] = None,
+    creator: Optional[str] = None,
+    type_code: Optional[str] = None,
+    kind: Optional[str] = None,
+    value: Optional[str] = None,
+    comment: Optional[str] = None,
+    service: Optional[str] = None,
+    keychain: Optional["Keychain"] = None,
+) -> Optional[str]:
+    """Read a password from the system keychain for a given item.
+
+    Any of the supplied arguments can be used to search for the password.
+
+    :param str label: Match on the label of the password. This is the normal one to use.
+    :param str account: Match on the account of the password.
+    :param str creator: Match on the creator of the password.
+    :param str type_code: Match on the type of the password.
+    :param str kind: Match on the kind of the password.
+    :param str value: Match on the value of the password (this is a generic attribute).
+    :param str comment: Match on the comment of the password.
+    :param str service: Match on the service of the password.
+    :param Keychain keychain: If supplied, only search this keychain, otherwise search all.
+    """
+
+    # pylint: disable=too-many-locals
+
+    log.debug(
+        "Fetching item from keychain: %s, %s, %s, %s, %s, %s, %s, %s, %s",
+        label,
+        account,
+        creator,
+        type_code,
+        kind,
+        value,
+        comment,
+        service,
+        keychain,
+    )
+
+    command = ["security", "find-generic-password"]
+
+    flags = {
+        "-l": label,
+        "-a": account,
+        "-c": creator,
+        "-C": type_code,
+        "-D": kind,
+        "-G": value,
+        "-j": comment,
+        "-s": service,
+    }
+
+    for flag, item in flags.items():
+        if item is not None:
+            command += [flag, item]
+
+    command += ["-g"]
+
+    if keychain is not None:
+        command += [keychain.path]
+
+    try:
+        output = subprocess.run(
+            command,
+            universal_newlines=True,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        ).stderr
+    except subprocess.CalledProcessError:
+        return None
+
+    # The output is somewhat complex. We are looking for the line starting "password:"
+    password_lines = [line for line in output.split("\n") if line.startswith("password: ")]
+
+    if len(password_lines) != 1:
+        raise Exception("Failed to get password from security output")
+
+    password_line = password_lines[0]
+
+    complex_pattern_match = re.match(r"^password: 0x([0-9A-F]*) .*$", password_line)
+    simple_pattern_match = re.match(r'^password: "(.*)"$', password_line)
+
+    password = None
+
+    if complex_pattern_match:
+        hex_value = complex_pattern_match.group(1)
+        password = bytes.fromhex(hex_value).decode("utf-8")
+
+    elif simple_pattern_match:
+        password = simple_pattern_match.group(1)
+
+    else:
+        password = ""
+
+    return password
+
+
+def set_password(
+    password: str,
+    *,
+    account: str,
+    service: str,
+    label: Optional[str] = None,
+    creator: Optional[str] = None,
+    type_code: Optional[str] = None,
+    kind: Optional[str] = None,
+    attribute: Optional[str] = None,
+    comment: Optional[str] = None,
+    allow_any_app_access: bool = False,
+    apps_with_access: Optional[List[str]] = None,
+    update_if_exists: bool = False,
+    keychain: Optional["Keychain"] = None,
+) -> None:
+    """Read a password from the system keychain for a given item.
+
+    Any of the supplied arguments can be used to search for the password.
+
+    :param str password: The password to set
+    :param str account: The name of the account
+    :param str service: The service name
+    :param Optional[str] label: The label (uses service name if not specified)
+    :param Optional[str] creator: The creator (a 4 character code)
+    :param Optional[str] type_code: The item type (a 4 character code)
+    :param Optional[str] kind: The item kind. Defaults to "application password"
+    :param Optional[str] attribute: Any generic attribute
+    :param Optional[str] comment: The comment
+    :param bool allow_any_app_access: Set to True to allow any app to access the item without warning
+    :param Optional[List[str]] apps_with_access: A list of apps with access to the item (the app binary paths)
+    :param bool update_if_exists: Update the existing item if it already exists
+    :param Keychain keychain: If supplied, add to that keychain, otherwise use the default.
+    """
+
+    # pylint: disable=too-many-locals
+
+    log.debug(
+        "Setting item from keychain: %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s",
+        account,
+        service,
+        label,
+        creator,
+        type_code,
+        kind,
+        attribute,
+        comment,
+        allow_any_app_access,
+        apps_with_access,
+        update_if_exists,
+        keychain,
+    )
+
+    command = ["security", "add-generic-password"]
+
+    flags = {
+        "-a": account,
+        "-c": creator,
+        "-C": type_code,
+        "-D": kind,
+        "-G": attribute,
+        "-j": comment,
+        "-l": label,
+        "-s": service,
+        "-w": password,
+    }
+
+    for flag, item in flags.items():
+        if item is not None:
+            command += [flag, item]
+
+    if allow_any_app_access:
+        command += ["-A"]
+
+    if update_if_exists:
+        command += ["-U"]
+
+    if apps_with_access is not None:
+        for app_path in apps_with_access:
+            if not os.path.exists(app_path):
+                raise FileNotFoundError(f"The following app does not exist at: {app_path}")
+
+            command += ["-T", app_path]
+
+    if keychain is not None:
+        command += [keychain.path]
+
+    # Let the exception bubble up
+    _ = subprocess.run(
+        command,
+        universal_newlines=True,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    ).stdout
+
+
+def delete_password(
+    *,
+    account: str,
+    service: str,
+    label: Optional[str] = None,
+    creator: Optional[str] = None,
+    type_code: Optional[str] = None,
+    kind: Optional[str] = None,
+    attribute: Optional[str] = None,
+    comment: Optional[str] = None,
+    keychain: Optional["Keychain"] = None,
+) -> None:
+    """Delete a password from the system keychain for a given item.
+
+    Any of the supplied arguments can be used to search for the password.
+
+    :param str account: The name of the account
+    :param str service: The service name
+    :param Optional[str] label: The label (uses service name if not specified)
+    :param Optional[str] creator: The creator (a 4 character code)
+    :param Optional[str] type_code: The item type (a 4 character code)
+    :param Optional[str] kind: The item kind. Defaults to "application password"
+    :param Optional[str] attribute: Any generic attribute
+    :param Optional[str] comment: The comment
+    :param Keychain keychain: If supplied, delete from that keychain, otherwise use the default.
+    """
+
+    # pylint: disable=too-many-locals
+
+    log.debug(
+        "Deleting item from keychain: %s, %s, %s, %s, %s, %s, %s, %s, %s",
+        account,
+        service,
+        label,
+        creator,
+        type_code,
+        kind,
+        attribute,
+        comment,
+        keychain,
+    )
+
+    command = ["security", "delete-generic-password"]
+
+    flags = {
+        "-a": account,
+        "-c": creator,
+        "-C": type_code,
+        "-D": kind,
+        "-G": attribute,
+        "-j": comment,
+        "-l": label,
+        "-s": service,
+    }
+
+    for flag, item in flags.items():
+        if item is not None:
+            command += [flag, item]
+
+    if keychain is not None:
+        command += [keychain.path]
+
+    # Let the exception bubble up
+    _ = subprocess.run(
+        command,
+        universal_newlines=True,
+        check=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+    ).stdout
+
+
 class Keychain:
     """Represents an actual keychain in the system."""
 
@@ -356,6 +626,131 @@ class Keychain:
         # keychains
         self.add_to_user_search_list()
 
+    def get_password(
+        self,
+        *,
+        label: Optional[str] = None,
+        account: Optional[str] = None,
+        creator: Optional[str] = None,
+        type_code: Optional[str] = None,
+        kind: Optional[str] = None,
+        value: Optional[str] = None,
+        comment: Optional[str] = None,
+        service: Optional[str] = None,
+    ) -> Optional[str]:
+        """Read a password from the system keychain for a given item.
+
+        Any of the supplied arguments can be used to search for the password.
+
+        :param str label: Match on the label of the password. This is the normal one to use.
+        :param str account: Match on the account of the password.
+        :param str creator: Match on the creator of the password.
+        :param str type_code: Match on the type of the password.
+        :param str kind: Match on the kind of the password.
+        :param str value: Match on the value of the password (this is a generic attribute).
+        :param str comment: Match on the comment of the password.
+        :param str service: Match on the service of the password.
+        """
+
+        return get_password(
+            label=label,
+            account=account,
+            creator=creator,
+            type_code=type_code,
+            kind=kind,
+            value=value,
+            comment=comment,
+            service=service,
+            keychain=self,
+        )
+
+    def set_password(
+        self,
+        password: str,
+        *,
+        account: str,
+        service: str,
+        label: Optional[str] = None,
+        creator: Optional[str] = None,
+        type_code: Optional[str] = None,
+        kind: Optional[str] = None,
+        attribute: Optional[str] = None,
+        comment: Optional[str] = None,
+        allow_any_app_access: bool = False,
+        apps_with_access: Optional[List[str]] = None,
+        update_if_exists: bool = False,
+    ) -> None:
+        """Read a password from the keychain for a given item.
+
+        Any of the supplied arguments can be used to search for the password.
+
+        :param str password: The password to set
+        :param str account: The name of the account
+        :param str service: The service name
+        :param Optional[str] label: The label (uses service name if not specified)
+        :param Optional[str] creator: The creator (a 4 character code)
+        :param Optional[str] type_code: The item type (a 4 character code)
+        :param Optional[str] kind: The item kind. Defaults to "application password"
+        :param Optional[str] attribute: Any generic attribute
+        :param Optional[str] comment: The comment
+        :param bool allow_any_app_access: Set to True to allow any app to access the item without warning
+        :param Optional[List[str]] apps_with_access: A list of apps with access to the item (the app binary paths)
+        :param bool update_if_exists: Update the existing item if it already exists
+        """
+        return set_password(
+            password,
+            label=label,
+            account=account,
+            creator=creator,
+            type_code=type_code,
+            kind=kind,
+            attribute=attribute,
+            comment=comment,
+            service=service,
+            allow_any_app_access=allow_any_app_access,
+            apps_with_access=apps_with_access,
+            update_if_exists=update_if_exists,
+            keychain=self,
+        )
+
+    def delete_password(
+        self,
+        *,
+        account: str,
+        service: str,
+        label: Optional[str] = None,
+        creator: Optional[str] = None,
+        type_code: Optional[str] = None,
+        kind: Optional[str] = None,
+        attribute: Optional[str] = None,
+        comment: Optional[str] = None,
+    ) -> None:
+        """Delete a password from the system keychain for a given item.
+
+        Any of the supplied arguments can be used to search for the password.
+
+        :param str account: The name of the account
+        :param str service: The service name
+        :param Optional[str] label: The label (uses service name if not specified)
+        :param Optional[str] creator: The creator (a 4 character code)
+        :param Optional[str] type_code: The item type (a 4 character code)
+        :param Optional[str] kind: The item kind. Defaults to "application password"
+        :param Optional[str] attribute: Any generic attribute
+        :param Optional[str] comment: The comment
+        """
+
+        return delete_password(
+            label=label,
+            account=account,
+            creator=creator,
+            type_code=type_code,
+            kind=kind,
+            attribute=attribute,
+            comment=comment,
+            service=service,
+            keychain=self,
+        )
+
     @staticmethod
     def list_keychains(*, domain: Optional[str] = None) -> List[str]:
         """Get the list of the current keychains.
@@ -515,273 +910,3 @@ class TemporaryKeychain:
             self.keychain.delete_temporary()
             self.keychain = None
         return False
-
-
-def get_password(
-    *,
-    label: Optional[str] = None,
-    account: Optional[str] = None,
-    creator: Optional[str] = None,
-    type_code: Optional[str] = None,
-    kind: Optional[str] = None,
-    value: Optional[str] = None,
-    comment: Optional[str] = None,
-    service: Optional[str] = None,
-    keychain: Optional[Keychain] = None,
-) -> Optional[str]:
-    """Read a password from the system keychain for a given item.
-
-    Any of the supplied arguments can be used to search for the password.
-
-    :param str label: Match on the label of the password. This is the normal one to use.
-    :param str account: Match on the account of the password.
-    :param str creator: Match on the creator of the password.
-    :param str type_code: Match on the type of the password.
-    :param str kind: Match on the kind of the password.
-    :param str value: Match on the value of the password (this is a generic attribute).
-    :param str comment: Match on the comment of the password.
-    :param str service: Match on the service of the password.
-    :param Keychain keychain: If supplied, only search this keychain, otherwise search all.
-    """
-
-    # pylint: disable=too-many-locals
-
-    log.debug(
-        "Fetching item from keychain: %s, %s, %s, %s, %s, %s, %s, %s, %s",
-        label,
-        account,
-        creator,
-        type_code,
-        kind,
-        value,
-        comment,
-        service,
-        keychain,
-    )
-
-    command = ["security", "find-generic-password"]
-
-    flags = {
-        "-l": label,
-        "-a": account,
-        "-c": creator,
-        "-C": type_code,
-        "-D": kind,
-        "-G": value,
-        "-j": comment,
-        "-s": service,
-    }
-
-    for flag, item in flags.items():
-        if item is not None:
-            command += [flag, item]
-
-    command += ["-g"]
-
-    if keychain is not None:
-        command += [keychain.path]
-
-    try:
-        output = subprocess.run(
-            command,
-            universal_newlines=True,
-            check=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        ).stderr
-    except subprocess.CalledProcessError:
-        return None
-
-    # The output is somewhat complex. We are looking for the line starting "password:"
-    password_lines = [line for line in output.split("\n") if line.startswith("password: ")]
-
-    if len(password_lines) != 1:
-        raise Exception("Failed to get password from security output")
-
-    password_line = password_lines[0]
-
-    complex_pattern_match = re.match(r"^password: 0x([0-9A-F]*) .*$", password_line)
-    simple_pattern_match = re.match(r'^password: "(.*)"$', password_line)
-
-    password = None
-
-    if complex_pattern_match:
-        hex_value = complex_pattern_match.group(1)
-        password = bytes.fromhex(hex_value).decode("utf-8")
-
-    elif simple_pattern_match:
-        password = simple_pattern_match.group(1)
-
-    else:
-        password = ""
-
-    return password
-
-
-def set_password(
-    password: str,
-    *,
-    account: str,
-    service: str,
-    label: Optional[str] = None,
-    creator: Optional[str] = None,
-    type_code: Optional[str] = None,
-    kind: Optional[str] = None,
-    attribute: Optional[str] = None,
-    comment: Optional[str] = None,
-    allow_any_app_access: bool = False,
-    apps_with_access: Optional[List[str]] = None,
-    update_if_exists: bool = False,
-    keychain: Optional[Keychain] = None,
-) -> None:
-    """Read a password from the system keychain for a given item.
-
-    Any of the supplied arguments can be used to search for the password.
-
-    :param str password: The password to set
-    :param str account: The name of the account
-    :param str service: The service name
-    :param Optional[str] label: The label (uses service name if not specified)
-    :param Optional[str] creator: The creator (a 4 character code)
-    :param Optional[str] type_code: The item type (a 4 character code)
-    :param Optional[str] kind: The item kind. Defaults to "application password"
-    :param Optional[str] attribute: Any generic attribute
-    :param Optional[str] comment: The comment
-    :param bool allow_any_app_access: Set to True to allow any app to access the item without warning
-    :param Optional[List[str]] apps_with_access: A list of apps with access to the item (the app binary paths)
-    :param bool update_if_exists: Update the existing item if it already exists
-    :param Keychain keychain: If supplied, add to that keychain, otherwise use the default.
-    """
-
-    # pylint: disable=too-many-locals
-
-    log.debug(
-        "Setting item from keychain: %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s",
-        account,
-        service,
-        label,
-        creator,
-        type_code,
-        kind,
-        attribute,
-        comment,
-        allow_any_app_access,
-        apps_with_access,
-        update_if_exists,
-        keychain,
-    )
-
-    command = ["security", "add-generic-password"]
-
-    flags = {
-        "-a": account,
-        "-c": creator,
-        "-C": type_code,
-        "-D": kind,
-        "-G": attribute,
-        "-j": comment,
-        "-l": label,
-        "-s": service,
-        "-w": password,
-    }
-
-    for flag, item in flags.items():
-        if item is not None:
-            command += [flag, item]
-
-    if allow_any_app_access:
-        command += ["-A"]
-
-    if update_if_exists:
-        command += ["-U"]
-
-    if apps_with_access is not None:
-        for app_path in apps_with_access:
-            if not os.path.exists(app_path):
-                raise FileNotFoundError(f"The following app does not exist at: {app_path}")
-
-            command += ["-T", app_path]
-
-    if keychain is not None:
-        command += [keychain.path]
-
-    # Let the exception bubble up
-    _ = subprocess.run(
-        command,
-        universal_newlines=True,
-        check=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    ).stdout
-
-
-def delete_password(
-    *,
-    account: str,
-    service: str,
-    label: Optional[str] = None,
-    creator: Optional[str] = None,
-    type_code: Optional[str] = None,
-    kind: Optional[str] = None,
-    attribute: Optional[str] = None,
-    comment: Optional[str] = None,
-    keychain: Optional[Keychain] = None,
-) -> None:
-    """Delete a password from the system keychain for a given item.
-
-    Any of the supplied arguments can be used to search for the password.
-
-    :param str account: The name of the account
-    :param str service: The service name
-    :param Optional[str] label: The label (uses service name if not specified)
-    :param Optional[str] creator: The creator (a 4 character code)
-    :param Optional[str] type_code: The item type (a 4 character code)
-    :param Optional[str] kind: The item kind. Defaults to "application password"
-    :param Optional[str] attribute: Any generic attribute
-    :param Optional[str] comment: The comment
-    :param Keychain keychain: If supplied, delete from that keychain, otherwise use the default.
-    """
-
-    # pylint: disable=too-many-locals
-
-    log.debug(
-        "Deleting item from keychain: %s, %s, %s, %s, %s, %s, %s, %s, %s",
-        account,
-        service,
-        label,
-        creator,
-        type_code,
-        kind,
-        attribute,
-        comment,
-        keychain,
-    )
-
-    command = ["security", "delete-generic-password"]
-
-    flags = {
-        "-a": account,
-        "-c": creator,
-        "-C": type_code,
-        "-D": kind,
-        "-G": attribute,
-        "-j": comment,
-        "-l": label,
-        "-s": service,
-    }
-
-    for flag, item in flags.items():
-        if item is not None:
-            command += [flag, item]
-
-    if keychain is not None:
-        command += [keychain.path]
-
-    # Let the exception bubble up
-    _ = subprocess.run(
-        command,
-        universal_newlines=True,
-        check=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-    ).stdout
