@@ -30,10 +30,10 @@ class KeyperCertificateTests(unittest.TestCase):
             password=KeyperCertificateTests.TEST_CERT_PASSWORD,
         )
         self.assertEqual(
-            certificate.sha1, "75:22:4C:AD:D6:A0:BD:0C:88:5F:B1:77:85:2F:83:A4:F6:80:69:70"
+            certificate.sha1, "AB:CC:D7:A5:96:BC:AC:67:96:45:6B:05:72:2A:8F:40:C6:10:6E:EB"
         )
-        self.assertEqual(certificate.common_name, "TestCertificate_CodeSign")
-        self.assertEqual(certificate.private_key_name, "TestCertificate_CodeSign")
+        self.assertEqual(certificate.common_name, "TestCert_CodeSign/C=GB")
+        self.assertEqual(certificate.private_key_name, "TestCert_CodeSign")
 
     def test_adding_cert(self):
         """Test that we can add a cert to the keychain."""
@@ -64,8 +64,14 @@ class KeyperCertificateTests(unittest.TestCase):
 
             try:
                 subprocess.run(
-                    f"codesign -s TestCertificate_CodeSign --keychain {keychain.path} {temp_file_path}",
-                    shell=True,
+                    [
+                        "codesign",
+                        "-s",
+                        "TestCert_CodeSign",
+                        "--keychain",
+                        keychain.path,
+                        temp_file_path,
+                    ],
                     check=True,
                 )
             except subprocess.CalledProcessError as ex:

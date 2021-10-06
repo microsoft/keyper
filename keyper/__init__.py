@@ -8,7 +8,6 @@ import os
 import platform
 import re
 import secrets
-import shlex
 from string import ascii_letters, digits
 import subprocess
 import tempfile
@@ -48,18 +47,36 @@ class Certificate:
 
         log.debug("Getting certificate value: %s", value_name)
 
-        command = f"openssl pkcs12 -in {shlex.quote(self.path)} -nokeys -passin pass:{shlex.quote(self.password)}"
-        command += f" | openssl x509 -noout -{value_name}"
+        get_cert_command = [
+            "openssl",
+            "pkcs12",
+            "-in",
+            self.path,
+            "-nokeys",
+            "-passin",
+            f"pass:{self.password}",
+        ]
 
         try:
-            value = subprocess.run(
-                command,
+            with subprocess.Popen(
+                get_cert_command,
                 universal_newlines=True,
-                shell=True,
-                check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-            ).stdout
+            ) as get_cert:
+
+                openssl_command = ["openssl", "x509", "-noout", f"-{value_name}"]
+
+                with subprocess.Popen(
+                    openssl_command,
+                    universal_newlines=True,
+                    stdin=get_cert.stdout,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                ) as openssl:
+
+                    value = openssl.stdout.read()
+
         except subprocess.CalledProcessError as ex:
             log.error("Failed to get value: %s", ex)
             return None
@@ -107,34 +124,44 @@ class Certificate:
 
         log.debug("Getting certificate private key name")
 
-        command = (
-            f"openssl pkcs12 -in {shlex.quote(self.path)} "
-            "-nocerts "
-            f"-passin pass:{shlex.quote(self.password)} "
-            f"-passout pass:{shlex.quote(self.password)} "
-            '| grep "friendlyName"'
-        )
+        command = [
+            "openssl",
+            "pkcs12",
+            "-in",
+            self.path,
+            "-nocerts",
+            "-passin",
+            f"pass:{self.password}",
+            "-passout",
+            f"pass:{self.password}",
+        ]
 
         try:
-            value = subprocess.run(
+            lines = subprocess.run(
                 command,
                 universal_newlines=True,
-                shell=True,
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
-            ).stdout
+                encoding="utf-8",
+            ).stdout.split("\n")
         except subprocess.CalledProcessError as ex:
             log.error("Failed to get private key name: %s", ex)
             return None
 
-        value = value.strip()
+        key = "friendlyName: "
+        lines = [line.strip() for line in lines]
+        friendly_names = [line for line in lines if line.startswith(key)]
+
+        if len(friendly_names) != 1:
+            log.error(f"Failed to get friendly name: {friendly_names}")
+            return None
+
+        value = friendly_names[0][len(key) :]
 
         log.debug("Friendly name: %s", value)
 
-        private_key_name = value.replace("friendlyName: ", "")
-
-        return private_key_name
+        return value
 
 
 class Keychain:
@@ -146,7 +173,7 @@ class Keychain:
 
     def __init__(self, path: str, password: str, *, is_temporary: bool = False) -> None:
         log.debug("Creating new keychain: %s (is_temporary=%s)", path, str(is_temporary))
-        self.path = path
+        self.path = os.path.realpath(path)
         self.password = password
         self.is_temporary = is_temporary
 
@@ -166,8 +193,7 @@ class Keychain:
 
         try:
             subprocess.run(
-                f"security delete-keychain {shlex.quote(self.path)}",
-                shell=True,
+                ["security", "delete-keychain", self.path],
                 check=True,
             )
         except subprocess.CalledProcessError as ex:
@@ -183,8 +209,7 @@ class Keychain:
 
         try:
             subprocess.run(
-                f"security unlock-keychain -p {shlex.quote(self.password)} {shlex.quote(self.path)}",
-                shell=True,
+                ["security", "unlock-keychain", "-p", self.password, self.path],
                 check=True,
             )
         except subprocess.CalledProcessError as ex:
@@ -215,13 +240,18 @@ class Keychain:
 
         try:
             subprocess.run(
-                (
-                    "security set-key-partition-list "
-                    "-S apple-tool:,apple: -s "
-                    f"-l {shlex.quote(certificate.private_key_name)} "
-                    f"-k {shlex.quote(self.password)} {shlex.quote(self.path)}"
-                ),
-                shell=True,
+                [
+                    "security",
+                    "set-key-partition-list",
+                    "-S",
+                    "apple-tool:,apple:",
+                    "-s",
+                    "-l",
+                    certificate.private_key_name,
+                    "-k",
+                    self.password,
+                    self.path,
+                ],
                 check=True,
             )
         except subprocess.CalledProcessError as ex:
@@ -241,21 +271,18 @@ class Keychain:
         if self.path in previous_keychains:
             return
 
-        command = "security list-keychains -d user -s "
-
-        command += shlex.quote(self.path) + " "
+        command = ["security", "list-keychains", "-d", "user", "-s", self.path]
 
         # Our new keychain needs to be at the start of the list so that it is
         # searched before the others are (otherwise they'll prompt for
         # passwords)
         for path in previous_keychains:
-            command += shlex.quote(path) + " "
+            command.append(path)
 
         try:
             subprocess.run(
                 command,
                 universal_newlines=True,
-                shell=True,
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -301,14 +328,23 @@ class Keychain:
         self.unlock()
 
         # Import the certificate into the keychain
-        import_command = (
-            f"security import {shlex.quote(certificate.path)} "
-            f"-P {shlex.quote(certificate.password)} "
-            f"-A -t cert -f pkcs12 -k {shlex.quote(self.path)}"
-        )
+        import_command = [
+            "security",
+            "import",
+            certificate.path,
+            "-P",
+            certificate.password,
+            "-A",
+            "-t",
+            "cert",
+            "-f",
+            "pkcs12",
+            "-k",
+            self.path,
+        ]
 
         try:
-            subprocess.run(import_command, shell=True, check=True)
+            subprocess.run(import_command, check=True)
         except subprocess.CalledProcessError as ex:
             log.error("Failed to get import certificate: %s", ex)
             raise
@@ -329,19 +365,18 @@ class Keychain:
 
         log.debug("Listing the current keychains")
 
-        command = "security list-keychains"
+        command = ["security", "list-keychains"]
 
         if domain is not None:
             if domain not in ["user", "system", "common", "dynamic"]:
                 raise Exception("Invalid domain: " + domain)
 
-            command += f" -d {shlex.quote(domain)}"
+            command += ["-d", domain]
 
         try:
             keychain_command_output = subprocess.run(
                 command,
                 universal_newlines=True,
-                shell=True,
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -355,8 +390,10 @@ class Keychain:
         for keychain in keychain_command_output.split("\n"):
             # Remove surrounding whitespace and then surrounding quotes
             current = keychain.strip()[1:-1]
-            if current:
-                keychains.append(current)
+            if not current:
+                continue
+            current = os.path.realpath(current)
+            keychains.append(current)
 
         log.debug("Current keychains: %s", str(keychains))
 
@@ -393,9 +430,8 @@ class Keychain:
 
         try:
             default_keychain_path = subprocess.run(
-                "security default-keychain",
+                ["security", "default-keychain"],
                 universal_newlines=True,
-                shell=True,
                 check=True,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -429,26 +465,25 @@ class Keychain:
 
         try:
             subprocess.run(
-                f"security create-keychain -p {shlex.quote(keychain_password)} {shlex.quote(keychain_path)}",
-                shell=True,
+                ["security", "create-keychain", "-p", keychain_password, keychain_path],
                 check=True,
             )
         except subprocess.CalledProcessError as ex:
             log.error("Failed to create keychain: %s", ex)
             raise
 
-        settings_command = "security set-keychain-settings -"
+        settings_command = ["security", "set-keychain-settings"]
 
         if lock_on_sleep:
-            settings_command += "l"
+            settings_command += ["-l"]
 
         if lock_on_timeout:
-            settings_command += "u"
+            settings_command += ["-u"]
 
-        settings_command += f"t {timeout} {shlex.quote(keychain_path)}"
+        settings_command += ["-t", str(timeout), keychain_path]
 
         try:
-            subprocess.run(settings_command, shell=True, check=True)
+            subprocess.run(settings_command, check=True)
         except subprocess.CalledProcessError as ex:
             log.error("Failed to set keychain settings: %s", ex)
             raise
@@ -524,7 +559,7 @@ def get_password(
         keychain,
     )
 
-    command = "security find-generic-password"
+    command = ["security", "find-generic-password"]
 
     flags = {
         "-l": label,
@@ -539,18 +574,17 @@ def get_password(
 
     for flag, item in flags.items():
         if item is not None:
-            command += f" {flag} {shlex.quote(item)}"
+            command += [flag, item]
 
-    command += " -g"
+    command += ["-g"]
 
     if keychain is not None:
-        command += " " + keychain.path
+        command += [keychain.path]
 
     try:
         output = subprocess.run(
             command,
             universal_newlines=True,
-            shell=True,
             check=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -637,7 +671,7 @@ def set_password(
         keychain,
     )
 
-    command = "security add-generic-password"
+    command = ["security", "add-generic-password"]
 
     flags = {
         "-a": account,
@@ -653,29 +687,28 @@ def set_password(
 
     for flag, item in flags.items():
         if item is not None:
-            command += f" {flag} {shlex.quote(item)}"
+            command += [flag, item]
 
     if allow_any_app_access:
-        command += " -A"
+        command += ["-A"]
 
     if update_if_exists:
-        command += " -U"
+        command += ["-U"]
 
     if apps_with_access is not None:
         for app_path in apps_with_access:
             if not os.path.exists(app_path):
                 raise FileNotFoundError(f"The following app does not exist at: {app_path}")
 
-            command += f" -T {shlex.quote(app_path)}"
+            command += ["-T", app_path]
 
     if keychain is not None:
-        command += " " + keychain.path
+        command += [keychain.path]
 
     # Let the exception bubble up
     _ = subprocess.run(
         command,
         universal_newlines=True,
-        shell=True,
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -724,7 +757,7 @@ def delete_password(
         keychain,
     )
 
-    command = "security delete-generic-password"
+    command = ["security", "delete-generic-password"]
 
     flags = {
         "-a": account,
@@ -739,16 +772,15 @@ def delete_password(
 
     for flag, item in flags.items():
         if item is not None:
-            command += f" {flag} {shlex.quote(item)}"
+            command += [flag, item]
 
     if keychain is not None:
-        command += " " + keychain.path
+        command += [keychain.path]
 
     # Let the exception bubble up
     _ = subprocess.run(
         command,
         universal_newlines=True,
-        shell=True,
         check=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,

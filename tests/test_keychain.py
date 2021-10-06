@@ -32,12 +32,12 @@ class KeyperKeychainTests(unittest.TestCase):
 
         keyper.set_password("foo", account="bar", service="baz", keychain=keychain)
 
-        result = keyper.get_password(label="baz", account="bar", service="baz")
+        result = keyper.get_password(label="baz", account="bar", service="baz", keychain=keychain)
         assert result == "foo"
 
-        keyper.delete_password(label="baz", account="bar", service="baz")
+        keyper.delete_password(label="baz", account="bar", service="baz", keychain=keychain)
 
-        result = keyper.get_password(label="baz", account="bar", service="baz")
+        result = keyper.get_password(label="baz", account="bar", service="baz", keychain=keychain)
         assert result is None
 
         keychain.delete_temporary()
