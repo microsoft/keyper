@@ -75,6 +75,9 @@ class Certificate:
                     stderr=subprocess.PIPE,
                 ) as openssl:
 
+                    if openssl.stdout is None:
+                        raise subprocess.CalledProcessError(1, openssl_command, None, None)
+
                     value = openssl.stdout.read()
 
         except subprocess.CalledProcessError as ex:
