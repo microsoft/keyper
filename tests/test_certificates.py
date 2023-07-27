@@ -30,10 +30,10 @@ class KeyperCertificateTests(unittest.TestCase):
             password=KeyperCertificateTests.TEST_CERT_PASSWORD,
         )
         self.assertEqual(
-            certificate.sha1, "AB:CC:D7:A5:96:BC:AC:67:96:45:6B:05:72:2A:8F:40:C6:10:6E:EB"
+            certificate.sha1, "2B:7F:C0:ED:58:4C:69:E7:62:A9:F1:10:3B:FE:F6:16:38:A8:35:B8"
         )
-        self.assertEqual(certificate.common_name, "TestCert_CodeSign/C=GB")
-        self.assertEqual(certificate.private_key_name, "TestCert_CodeSign")
+        self.assertEqual(certificate.common_name, "TestCertificate")
+        self.assertEqual(certificate.private_key_name, "TestCertificate")
 
     def test_adding_cert(self):
         """Test that we can add a cert to the keychain."""
@@ -67,7 +67,7 @@ class KeyperCertificateTests(unittest.TestCase):
                     [
                         "codesign",
                         "-s",
-                        "TestCert_CodeSign",
+                        "TestCertificate",
                         "--keychain",
                         keychain.path,
                         temp_file_path,

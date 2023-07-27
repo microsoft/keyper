@@ -55,6 +55,7 @@ class Certificate:
             "-nokeys",
             "-passin",
             f"pass:{self.password}",
+            "-legacy",
         ]
 
         try:
@@ -65,7 +66,12 @@ class Certificate:
                 stderr=subprocess.PIPE,
             ) as get_cert:
 
-                openssl_command = ["openssl", "x509", "-noout", f"-{value_name}"]
+                openssl_command = [
+                    "openssl",
+                    "x509",
+                    "-noout",
+                    f"-{value_name}",
+                ]
 
                 with subprocess.Popen(
                     openssl_command,
@@ -100,15 +106,19 @@ class Certificate:
             log.error("Failed to get common name due to lack of subject")
             return None
 
-        match = re.search(r"subject=.*/CN=(.*).*/.*", subject)
+        subject = subject.removeprefix("subject=")
+        fields = list(map(lambda x: x.strip(), subject.split(",")))
 
-        if match:
-            common_name = match.group(1)
-        else:
-            log.error("Failed to get common name from subject: %s", subject)
-            return None
+        for field in fields:
+            key, value = field.split("=")
+            key = key.strip()
+            value = value.strip()
 
-        return common_name
+            if key == "CN":
+                return value
+
+        log.error("Failed to get common name from subject: %s", subject)
+        return None
 
     def _get_p12_sha1_hash(self) -> str:
 
@@ -119,7 +129,7 @@ class Certificate:
         if fingerprint is None:
             raise Exception("Failed to get fingerprint")
 
-        fingerprint = fingerprint.replace("SHA1 Fingerprint=", "")
+        fingerprint = fingerprint.removeprefix("SHA1 Fingerprint=")
 
         return fingerprint
 
@@ -137,6 +147,7 @@ class Certificate:
             f"pass:{self.password}",
             "-passout",
             f"pass:{self.password}",
+            "-legacy",
         ]
 
         try:
