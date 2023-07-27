@@ -32,7 +32,7 @@ class KeyperCertificateTests(unittest.TestCase):
         self.assertEqual(
             certificate.sha1, "AB:CC:D7:A5:96:BC:AC:67:96:45:6B:05:72:2A:8F:40:C6:10:6E:EB"
         )
-        self.assertEqual(certificate.common_name, "TestCert_CodeSign")
+        self.assertEqual(certificate.common_name, "TestCert_CodeSign/C=GB")
         self.assertEqual(certificate.private_key_name, "TestCert_CodeSign")
 
     def test_adding_cert(self):
