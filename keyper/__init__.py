@@ -109,6 +109,8 @@ class Certificate:
         subject = subject.removeprefix("subject=")
         fields = list(map(lambda x: x.strip(), subject.split(",")))
 
+        raise Exception("Output: " + subject)
+
         for field in fields:
             key, value = field.split("=")
             key = key.strip()
