@@ -1,7 +1,7 @@
-# keyper 
+# keyper
 
 [![PyPi Version](https://img.shields.io/pypi/v/keyper.svg)](https://pypi.org/project/keyper/)
-[![License](https://img.shields.io/pypi/l/keyper.svg)](https://github.com/Microsoft/keyper/blob/master/LICENSE)
+[![License](https://img.shields.io/pypi/l/keyper.svg)](https://github.com/Microsoft/keyper/blob/main/LICENSE)
 
 A Python 3 library for dealing with the macOS Keychain
 
@@ -10,6 +10,7 @@ A Python 3 library for dealing with the macOS Keychain
     pip install keyper
 
 ## Examples:
+
 ```python
 import keyper
 
@@ -23,12 +24,10 @@ with keyper.TemporaryKeychain() as keychain:
     keychain.install_cert(certificate)
     # Use codesign or similar here
 ```
-    
-
 
 # Contributing
 
-This project welcomes contributions and suggestions.  Most contributions require you to agree to a
+This project welcomes contributions and suggestions. Most contributions require you to agree to a
 Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
 the rights to use your contribution. For details, visit https://cla.microsoft.com.
 
