@@ -8,10 +8,8 @@ import os
 import sys
 import unittest
 
-#pylint: disable=duplicate-code
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.abspath(__file__), "..", "..")))
 import keyper
-#pylint: enable=duplicate-code
 
 
 class KeyperKeychainTests(unittest.TestCase):
@@ -29,6 +27,18 @@ class KeyperKeychainTests(unittest.TestCase):
         self.assertIsNotNone(keychain.password)
         self.assertTrue(os.path.exists(keychain.path))
         self.assertTrue(keychain.is_temporary)
+
+        keychain.unlock()
+
+        keyper.set_password("foo", account="bar", service="baz", keychain=keychain)
+
+        result = keyper.get_password(label="baz", account="bar", service="baz", keychain=keychain)
+        assert result == "foo"
+
+        keyper.delete_password(label="baz", account="bar", service="baz", keychain=keychain)
+
+        result = keyper.get_password(label="baz", account="bar", service="baz", keychain=keychain)
+        assert result is None
 
         keychain.delete_temporary()
 

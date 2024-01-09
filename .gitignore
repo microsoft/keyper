@@ -10,3 +10,4 @@ htmlcov/*
 junit/*
 lib/*
 pyvenv.cfg
+venv
