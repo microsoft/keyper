@@ -3,7 +3,9 @@
 [![PyPi Version](https://img.shields.io/pypi/v/keyper.svg)](https://pypi.org/project/keyper/)
 [![License](https://img.shields.io/pypi/l/keyper.svg)](https://github.com/Microsoft/keyper/blob/main/LICENSE)
 
-A Python 3 library for dealing with the macOS Keychain
+A Python 3 library for dealing with the macOS Keychain.
+
+Please note that this library requires openssl 3.0 or above to function.
 
 ## Installation
 
