@@ -47,6 +47,9 @@ class KeyperCertificateTests(unittest.TestCase):
             self.assertEqual(certificate.password, KeyperCertificateTests.TEST_CERT_PASSWORD)
             keychain.install_cert(certificate)
 
+            certs = keyper.load_all_certificates(keychain.path)
+            assert len(certs) == 1
+
     def test_using_codesign(self):
         """Test that an added cert works with codesign."""
 

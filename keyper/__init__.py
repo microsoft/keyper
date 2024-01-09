@@ -8,6 +8,7 @@ from .certificate import Certificate
 from .keychain import Keychain, get_password, set_password, delete_password
 from .temporary_keychain import TemporaryKeychain
 from .exceptions import KeyperException
+from .keychain_certificate import KeychainCertificate, load_all_certificates
 
 
 if platform.system() != "Darwin":
