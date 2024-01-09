@@ -11,3 +11,4 @@ junit/*
 lib/*
 pyvenv.cfg
 venv
+.venv
