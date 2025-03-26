@@ -35,6 +35,9 @@ class KeyperKeychainTests(unittest.TestCase):
         result = keyper.get_password(label="baz", account="bar", service="baz", keychain=keychain)
         assert result == "foo"
 
+        result = keyper.get_password(label="baz", account="bar", service="baz", keychain=keychain, skip_decode=True)
+        assert result == bytearray("foo", "utf-8")
+
         keyper.delete_password(label="baz", account="bar", service="baz", keychain=keychain)
 
         result = keyper.get_password(label="baz", account="bar", service="baz", keychain=keychain)
