@@ -482,7 +482,7 @@ def get_password(
     comment: Optional[str] = None,
     service: Optional[str] = None,
     keychain: Optional["Keychain"] = None,
-    skip_decode: Optional[bool] = None
+    skip_decode: bool = False
 ) -> Optional[str|bytearray]:
     """Read a password from the system keychain for a given item.
 
@@ -497,7 +497,8 @@ def get_password(
     :param str comment: Match on the comment of the password.
     :param str service: Match on the service of the password.
     :param Keychain keychain: If supplied, only search this keychain, otherwise search all.
-    :param bool skip_decode: Indicates to skip trying to interpret the password as a UTF-8 string, instead returning the password as a `bytearray`. Useful for system passwords
+    :param bool skip_decode: Default `False`. Indicates to skip trying to interpret the password as a UTF-8 string,
+                            instead returning the password as a `bytearray`. Useful for system passwords
 
     :returns: The found password as a `utf-8` string, unless `skip_decode` is set to `True`, in which case the password will be returned as a `bytearray`
     :rtype: str|bytearray|None
