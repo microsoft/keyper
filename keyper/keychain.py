@@ -482,8 +482,8 @@ def get_password(
     comment: Optional[str] = None,
     service: Optional[str] = None,
     keychain: Optional["Keychain"] = None,
-    skip_decode: bool = False
-) -> Optional[str|bytearray]:
+    as_bytes: bool = False
+) -> Optional[str|bytes]:
     """Read a password from the system keychain for a given item.
 
     Any of the supplied arguments can be used to search for the password.
@@ -497,11 +497,11 @@ def get_password(
     :param str comment: Match on the comment of the password.
     :param str service: Match on the service of the password.
     :param Keychain keychain: If supplied, only search this keychain, otherwise search all.
-    :param bool skip_decode: Default `False`. Indicates to skip trying to interpret the password as a UTF-8 string,
-                            instead returning the password as a `bytearray`. Useful for system passwords
+    :param bool as_bytes: Default `False`. Indicates to skip trying to interpret the password as a UTF-8 string,
+                          instead returning the password as a `bytes`. Useful for system passwords
 
-    :returns: The found password as a `utf-8` string, unless `skip_decode` is set to `True`, in which case the password will be returned as a `bytearray`
-    :rtype: str|bytearray|None
+    :returns: The found password as a `utf-8` string, unless `skip_decode` is set to `True`, in which case the password will be returned as a `bytes`
+    :rtype: str|bytes|None
     """
 
     # pylint: disable=too-many-locals
@@ -568,14 +568,16 @@ def get_password(
     if complex_pattern_match:
         hex_value = complex_pattern_match.group(1)
         password = bytes.fromhex(hex_value)
-        if not skip_decode:
+        if not as_bytes:
             password = password.decode("utf-8")
 
     elif simple_pattern_match:
         password = simple_pattern_match.group(1)
+        if as_bytes:
+            password = password.encode("utf-8")
 
     else:
-        password = ""
+        password = b"" if as_bytes else ""
 
     return password
 
